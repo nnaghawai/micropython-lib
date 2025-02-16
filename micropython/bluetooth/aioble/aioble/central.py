@@ -175,7 +175,7 @@ class ScanResult:
                 self.connectable = adv_type == _ADV_IND
                 updated = True
         elif adv_type == _ADV_SCAN_IND:
-            if adv_data != self.adv_data and self.resp_data:
+            if adv_data != self.adv_data:
                 updated = True
             self.adv_data = adv_data
         elif adv_type == _SCAN_RSP and adv_data:
