@@ -146,21 +146,28 @@ async def _connect(
 # Represents a single device that has been found during a scan. The scan
 # iterator will return the same ScanResult instance multiple times as its data
 # changes (i.e. changing RSSI or advertising data).
+#
+# if suppress_rssi_update is True then rssi changes will not be considered
+# an update and rssi values will be silently updated 
 class ScanResult:
-    def __init__(self, device):
+    def __init__(self, device, suppress_rssi_update = False):
         self.device = device
         self.adv_data = None
         self.resp_data = None
         self.rssi = None
         self.connectable = False
+        self.suppress_rssi_update = suppress_rssi_update
 
     # New scan result available, return true if it changes our state.
     def _update(self, adv_type, rssi, adv_data):
         updated = False
 
-        if rssi != self.rssi:
+        if self.suppress_rssi_update:
             self.rssi = rssi
-            updated = True
+        else:
+            if rssi != self.rssi:
+                self.rssi = rssi
+                updated = True
 
         if adv_type in (_ADV_IND, _ADV_NONCONN_IND):
             if adv_data != self.adv_data:
@@ -227,10 +234,12 @@ class ScanResult:
 #   async for result in scanner:
 #     ...
 class scan:
-    def __init__(self, duration_ms, interval_us=None, window_us=None, active=False):
+    def __init__(self, duration_ms, interval_us=None, window_us=None, active=False, suppress_rssi_update=False, only_public_address=False):
         self._queue = []
         self._event = asyncio.ThreadSafeFlag()
         self._done = False
+        self._suppress_rssi_update = suppress_rssi_update
+        self._only_public_address = only_public_address
 
         # Keep track of what we've already seen.
         self._results = set()
@@ -271,6 +280,9 @@ class scan:
         while True:
             while self._queue:
                 addr_type, addr, adv_type, rssi, adv_data = self._queue.pop()
+                
+                if self._only_public_address and addr_type != 0x00:
+                    continue
 
                 # Try to find an existing ScanResult for this device.
                 for r in self._results:
